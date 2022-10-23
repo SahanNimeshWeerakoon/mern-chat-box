@@ -17,6 +17,8 @@ const io = new Server(server, {
 });
 
 const CHAT_BOT = 'ChatBot';
+let chatRoom = '';
+let allUsers = [];
 
 io.on('connection', (socket) => {
     console.log(`User connected ${socket.id}`);
@@ -25,6 +27,13 @@ io.on('connection', (socket) => {
         socket.join(room);
 
         let __createdtime__ = Date.now();
+
+        chatRoom = room;
+        allUsers.push({ id: socket.id, username, room });
+        let chatRoomUsers = allUsers.filter((user) => user.room === room);
+
+        socket.to(room).emit('chatroom_users', chatRoomUsers);
+        socket.emit('chatroom_users', chatRoomUsers);
 
         // send message to all users in the room apart from the joined user
         socket.to(room).emit('recieve_message', {
