@@ -1,58 +1,49 @@
 const express = require('express');
 const http = require('http');
-const cors = require('cors');
-const { Server } = require('socket.io');
+const socketIo = require('socket.io');
 
+// Create an Express app
 const app = express();
+const PORT = 4000;
 
-app.use(cors());
-
+// Create an HTTP server and wrap the Express app with it
 const server = http.createServer(app);
 
-const io = new Server(server, {
-    cors: {
-        origin: 'http://localhost:3000',
-        methods: ['GET', 'POST']
-    }
+// Integrate Socket.IO with the HTTP server
+const io = socketIo(server, {
+  cors: {
+    origin: '*', // Allow requests from any origin
+    methods: ['GET', 'POST']
+  }
 });
 
-const CHAT_BOT = 'ChatBot';
-let chatRoom = '';
-let allUsers = [];
+// Serve a simple API endpoint
+app.get('/api', (req, res) => {
+  res.json({ message: 'Hello world' });
+});
 
+// Listen for new WebSocket connections
 io.on('connection', (socket) => {
-    console.log(`User connected ${socket.id}`);
+  console.log('A user connected:', socket.id);
 
-    socket.on('join_room', ({ username, room }) => {
-        socket.join(room);
+  // Emit a welcome message to the connected client
+  socket.emit('welcome', { message: 'Welcome to the WebSocket server!' });
 
-        let __createdtime__ = Date.now();
+  // Listen for messages from the client
+  socket.on('message', (data) => {
+    console.log('Message received from client:', data);
 
-        chatRoom = room;
-        allUsers.push({ id: socket.id, username, room });
-        let chatRoomUsers = allUsers.filter((user) => user.room === room);
+    // Broadcast the message to all other clients
+    socket.broadcast.emit('message', data);
+  });
 
-        socket.to(room).emit('chatroom_users', chatRoomUsers);
-        socket.emit('chatroom_users', chatRoomUsers);
-
-        // send message to all users in the room apart from the joined user
-        socket.to(room).emit('recieve_message', {
-            message: `${username} has joined the chat room`,
-            username: CHAT_BOT,
-            __createdtime__
-        });
-
-        // send welcome message to the user just joined
-        socket.emit('recieve_message', {
-            message: `Welcome ${username}`,
-            username: CHAT_BOT,
-            __createdtime__
-        });
-    });
-})
-
-app.get('/', (req, res) => {
-    res.send('Hello World!');
+  // Handle client disconnection
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
 });
 
-server.listen(4000, () => `Server is running at port 4000`);
+// Start the server
+server.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
